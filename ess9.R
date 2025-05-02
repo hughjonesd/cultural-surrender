@@ -1,6 +1,7 @@
 
 library(tidyverse)
 library(patchwork)
+library(huxtable)
 
 theme_set(theme_light())
 theme_update(
@@ -21,6 +22,15 @@ theme_update(
 # NB marsts is *not* useful, see codebook
 # wkhtot total hours worked per week inc overtime
 # mnactic main activity last 7 days
+# 
+# Attitudes:
+# atchctr - how emot attached to country
+# iagrtr - ideal age to retire
+# alvgptn - approve if living with unmarried partner
+# acldnmr - approve if child with person not married to
+# advcyc - approve divorce children under 12
+# plnftr - plan for future or take every day as it comes
+# ip* - important to X
 
 ess9 <- read_csv("ESS9e03_2/ESS9e03_2.csv") |> 
   mutate(
@@ -33,7 +43,11 @@ ess9 <- read_csv("ESS9e03_2/ESS9e03_2.csv") |>
     across(c(maryr, fcldbrn), 
            ~ ifelse(. > 2100, NA, .)),
     across(c(wkhtot),
-           ~ ifelse(. > 168, NA, .))
+           ~ ifelse(. > 168, NA, .)),
+    across(c(starts_with("ip"), starts_with("imp")),
+           ~ ifelse(. >= 7, NA, .)),
+    across(c(starts_with("ip"), starts_with("imp")),
+           ~ 7 - .)
   ) |> 
   mutate(
     Married = rshpsts %in% 1:2,
@@ -432,3 +446,67 @@ plot_dec_gt48 <- men3049 |>
 
 plot_dec_lt40 + plot_dec_gt48
 
+
+## Attitudes ####
+## 
+
+attitude_plot <- function (x, title = substitute(x)) {
+  ess9$Age <- ifelse(ess9$agea >= 50, "50 and over", "Under 50")
+  plot_u <- ess9 |> 
+    drop_na({{x}}, University, Age) |> 
+    ggplot(aes(University, {{x}}, color = Age)) + 
+    stat_summary(fun.data = \(y) mean_se(y, mult = 1.96)) +    
+    labs(title = title,
+         subtitle = paste0("Mean of ", tolower(title), ": ESS respondents"), 
+         x = "", 
+         y = "") + 
+    theme(legend.position = "none") +
+    scale_color_manual(values = c("50 and over" = "navy", "Under 50" = "darkred"))
+  
+  plot_dec <- ess9 |> 
+    drop_na({{x}}, hinctnta, Age) |> 
+    ggplot(aes(hinctnta, {{x}}, color = Age)) + 
+    stat_summary(fun.data = \(y) mean_se(y, mult = 1.96)) +    
+    labs(
+         x = "Household income decile", 
+         y = "") +
+    theme(legend.title = element_blank()) +
+    scale_color_manual(values = c("50 and over" = "navy", "Under 50" = "darkred")) +
+    scale_x_continuous(breaks = 1:10)
+
+  plot_u + plot_dec
+}
+
+
+
+attitude_plot(iphlppl)  # help people
+attitude_plot(ipgdtim)  # good time
+attitude_plot(impfun)   # have fun
+attitude_plot(impdiff)  # try new and different things
+attitude_plot(ipcrtiv) # be creative
+attitude_plot(imprich)  # be rich
+
+attitude_plot(ipmodst)  # modest
+attitude_plot(ipfrule)  # follow rule
+attitude_plot(ipbhprp)  # behave properly
+attitude_plot(imptrad) # follow traditions
+
+# correlations between the two groups of attitudes
+ess9 |> 
+  select(ipgdtim, impfun, impdiff, ipcrtiv, impfree, 
+         ipmodst, ipfrule, ipbhprp, imptrad) |> 
+  cor(use = "pair") |> 
+  round(3) |> 
+  as_hux() |> 
+  map_text_color(by_colorspace("grey", "yellow"))
+
+ess9$attitude_fun <- ess9 |> 
+  select(ipgdtim, impfun, impdiff, ipcrtiv, impfree) |> 
+  rowMeans()
+
+ess9$attitude_trad <- ess9 |> 
+  select(ipmodst, ipfrule, ipbhprp, imptrad) |> 
+  rowMeans()
+
+attitude_plot(attitude_fun, "Individualist attitudes")
+attitude_plot(attitude_trad, "Traditional attitudes")
