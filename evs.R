@@ -3,7 +3,7 @@ library(tidyverse)
 library(forcats)
 library(haven)
 library(ggstats)
-# The EVS trend file, 1981-2017
+library(patchwork)
 
 theme_set(theme_light())
 theme_update(
@@ -11,7 +11,7 @@ theme_update(
   line = element_line(lineend = "round")
 ) 
 
-
+# The EVS trend file, 1981-2017
 evs_orig <- haven::read_dta("EVS/ZA7503_v3-0-0.dta") 
 
 
@@ -39,16 +39,22 @@ evs <- evs_orig |>
   mutate(
     Age = relabel_na(X003R),
     Age = forcats::fct_recode(Age, "65+" = "65 and more years"),
-    across(c(E012, X002, X003, X023R, C038, C039, C040, C011, C012, C017, C024, 
+    across(c(E012, X002, X003, X023R, C038, C039, C040, C041, C011, C012, C017, C024, 
              C031, F028, A065, A097, F024, F034, F126, F127, F128, F140, G006,
-             X007, X011, X028), 
+             X007, X011, X028, D018, X001, A001:A006, A027:A042, A165, E015:E019,
+             F050), 
            neg_na),
-    across(c(D054, D018), relabel_na),
+    across(c(D054), relabel_na),
     Marriage_outdated = relabel_na(D022),
     across(c(C038, C039), ~ 6 - .), # originally, 1 = strongly agree, 5 = strongly disagree. Reverse.
+    across(A001:A006, ~ 5 - .), # originally 1 = v important 4 = not at all
+    across(E015:E019, ~ 4 - .), # originally 1 = good thing 3 = bad thing
     National_pride = 1 * (G006 == 1),
     Income = relabel_na(X047R_EVS),
+    Male = X001 == 1,
     Wave   = relabel_na(S002EVS),
+    Wave = fct_recode(Wave, "1981" = "1981-1984", "1990" = "1990-1993", 
+                      "1999" = "1999-2001", "2008" = "2008-2010", "2017" = "2017-2021"),
     Education  = ifelse(X023R == 10, "To 21+", "Less than 21"),
     Education = fct_relevel(Education, "To 21+", "Less than 21"),
     Relig_weekly = 1 * (F028 %in% 1:2),
@@ -67,7 +73,8 @@ evs <- evs_orig |>
     Nev_mar_children_2 = 1 * (Has_children & X007 %in% c(2, 6)),
     Employed = 1 * (X028 %in% 1:2),
     Emp_gt_30 = 1 * (X028 == 1),
-    Emp_lt_30 = 1 * (X028 == 2)
+    Emp_lt_30 = 1 * (X028 == 2),
+    Trust = 1 * (A165 == 1),
   ) |> 
   # Only use countries that took part in all waves
   filter(S009 %in% in_all_waves)
@@ -102,58 +109,107 @@ plot_age <- function (var, data = evs) {
 }
 
 sy <- scale_y_continuous(labels = scales::percent)
+lyb <- labs(y = "")
+
+
+evs_k <- evs |> filter(Has_children == 1)
+# Has children, unmarried
+l <- labs(title = "Unmarried with children", 
+          subtitle = "% of EVS respondents with children who were not married at interview time",
+          y = "")
+pi <- plot_income(Unmarried_children, data = evs_k) + l + sy
+pe <- plot_edu(Unmarried_children, data = evs_k) + sy + lyb
+pi + pe
+
+
+# Has children, never married
+l <- labs(title = "Never married with children", 
+          subtitle = "% of EVS respondents with children who have never married\nIncludes cohabiting/reg. partnership",
+          y = "")
+pi <- plot_income(Nev_mar_children_2, data = evs_k) + l + sy
+pe <- plot_edu(Nev_mar_children_2, data = evs_k) + lyb + sy
+pi + pe 
+
+
+# Divorce
+l <- labs(title = "Divorce", 
+          subtitle = "% of EVS respondents who are divorced",
+          y = "")
+pi <- plot_income(Divorced) + l + sy
+pe <- plot_edu(Divorced) + lyb + sy
+pi + pe
 
 # Agree: Marriage is an outdated institution
-plot_income(D022)
-plot_edu(D022)
-plot_age(D022)
+l <- labs(title = "Attitudes: marriage is outdated", 
+          subtitle = "% of EVS respondents agreeing 'marriage is an outdated institution'",
+          y = "")
+pi <- plot_income(D022) + l + sy
+pe <- plot_edu(D022) + lyb + sy
+pi + pe
+
 
 # Agree: A child needs a home with a mother and a father
-plot_income(D018)
-plot_edu(D018)
-plot_age(D018)
+l <- labs(title = "Attitudes: child needs both parents", 
+          subtitle = "% of EVS respondents agreeing 'a child needs a home with a mother and a father'",
+          y = "")
+pi <- plot_income(D018) + l + sy
+pe <- plot_edu(D018) + lyb + sy
+pi + pe
+
+
+
+
+l <- labs(title = "Full time employment",
+          subtitle = "% working 30 hours weekly, among employed men 25-64",
+          y = ""
+)
+evs_emp <- evs |> filter(Employed == 1, Male, Age != "15-24", Age != "65+")
+pi <- plot_income(Emp_gt_30, data = evs_emp) + l + sy
+pe <- plot_edu(Emp_gt_30, data = evs_emp) + lyb + sy
+pi + pe
+
 
 # People who don't work turn lazy (reversed: 1 = strong disagree, 5 = strong agree)
-l <- labs(title = "People who don't work turn lazy", 
-          subtitle = "Mean score (5 = strong agree, 1 = strong disagree)",
+l <- labs(title = "Attitudes: people who don't work turn lazy", 
+          subtitle = "Mean score (1 = strong disagree, 5 = strong agree)",
           y = "")
-plot_income(C038) + l
-plot_edu(C038) + l
-plot_age(C038) + l
+pi <- plot_income(C038) + l
+pe <- plot_edu(C038) + lyb
+pi + pe
 
 # Work is a duty to society (same)
-l <- labs(title = "Work is a duty", 
-          subtitle = "Mean score (5 = strong agree, 1 = strong disagree)",
+l <- labs(title = "Attitudes: work is a duty", 
+          subtitle = "Mean score (1 = strong disagree, 5 = strong agree)",
           y = "")
-plot_income(C039) + l
-plot_edu(C039) + l
-plot_age(C039) + l
+pi <- plot_income(C039) + l
+pe <- plot_edu(C039) + lyb
+pi + pe
 
 
 # Attends services weekly
 l <- labs(title = "Attends religious services weekly", 
-          subtitle = "% attending",
+          subtitle = "% of EVS respondents",
           y = "")
-plot_income(Relig_weekly) + l + sy
-plot_edu(Relig_weekly) + l + sy
-plot_age(Relig_weekly) + l + sy
+pi <- plot_income(Relig_weekly) + l + sy
+pe <- plot_edu(Relig_weekly) + lyb + sy
+pi + pe
 
 # Member religious organization
 l <- labs(title = "Member of church or religious organization", 
-          subtitle = "% member",
+          subtitle = "% of EVS respondents",
           y = "")
-plot_income(A065) + l + sy
-plot_edu(A065) + l + sy
-plot_age(A065) + l + sy
+pi <- plot_income(A065) + l + sy
+pe <- plot_edu(A065) + lyb + sy
+pi + pe
 
 
 # Belong religious denomination
 l <- labs(title = "Belong to religious denomination", 
           subtitle = "% member",
           y = "")
-plot_income(F024) + l + sy
-plot_edu(F024) + l + sy
-plot_age(F024) + l + sy
+pi <- plot_income(F024) + l + sy
+pe <- plot_edu(F024) + lyb + sy
+pi + pe
 
 # religious person
 l <- labs(title = "Religious belief", 
@@ -166,93 +222,49 @@ plot_age(Relig_person) + l + sy
 
 # Atheist
 l <- labs(title = "Atheism", 
-          subtitle = "% saying they are a convinced atheist",
+          subtitle = "% of EVS respondents saying they are a 'convinced atheist'",
           y = "")
-plot_income(Atheist) + l + sy 
-plot_edu(Atheist) + l + sy
-plot_age(Atheist) + l + sy
+pi <- plot_income(Atheist) + l + sy 
+pe <- plot_edu(Atheist) + lyb + sy
+pi + pe
 
 
 
 # Justifiable: soft drogs
 l <- labs(title = "Soft drugs: how justifiable", 
-          subtitle = "% giving 8 or more on 1-10 scale",
+          subtitle = "% of EVS respondents giving 8 or more on 1-10 scale",
           y = "")
-plot_income(Drugs) + l + sy
-plot_edu(Drugs) + l + sy
-plot_age(Drugs) + l + sy
+pi <- plot_income(Drugs) + l + sy
+pe <- plot_edu(Drugs) + lyb + sy
+pi + pe
 
 
 # Justifiable: lying
 l <- labs(title = "Lying: how justifiable", 
-          subtitle = "% giving 8 or more on 1-10 scale",
+          subtitle = "% of EVS respondents giving 8 or more on 1-10 scale",
           y = "")
-plot_income(Lying) + l + sy
-plot_edu(Lying) + l + sy
-plot_age(Lying) + l + sy
+pi <- plot_income(Lying) + l + sy
+pe <- plot_edu(Lying) + lyb + sy
+pi + pe
 
 
 # Justifiable: adultery
 l <- labs(title = "Adultery: how justifiable", 
-          subtitle = "% giving 8 or more on 1-10 scale\n'married men/women having an affair'",
+          subtitle = "% of EVS respondents giving 8 or more on 1-10 scale\n'married men/women having an affair'",
           y = "")
-plot_income(Adultery) + l + sy
-plot_edu(Adultery) + l + sy
-plot_age(Adultery) + l + sy
+pi <- plot_income(Adultery) + l + sy
+pe <- plot_edu(Adultery) + lyb + sy
+pi + pe
 
 
-# Justifiable: adultery
+# National pride
 l <- labs(title = "National pride", 
-          subtitle = "% 'very proud' of their nationality",
+          subtitle = "% of EVS respondents 'very proud' of their nationality",
           y = "")
-plot_income(National_pride) + l + sy
-plot_edu(National_pride) + l + sy
-plot_age(National_pride) + l + sy
+pi <- plot_income(National_pride) + l + sy
+pe <- plot_edu(National_pride) + lyb + sy
+pi + pe
+
+# Other things you could do: what's important in a child (A027-A042)
 
 
-# Has children, unmarried
-l <- labs(title = "Unmarried with children", 
-          subtitle = "% with children but not now married",
-          y = "")
-plot_income(Unmarried_children) + l + sy
-plot_edu(Unmarried_children) + l + sy
-plot_age(Unmarried_children) + l + sy
-
-
-# Has children, never married
-
-evs_k <- evs |> filter(Has_children == 1)
-l <- labs(title = "Never married with children", 
-          subtitle = "% with children who are never married",
-          y = "")
-plot_income(Nev_mar_children, data = evs_k) + l + sy
-plot_edu(Nev_mar_children, data = evs_k) + l + sy
-plot_age(Nev_mar_children, data = evs_k) + l + sy
-
-
-# Has children, never married
-l <- labs(title = "Never married with children (alt definition)", 
-          subtitle = "% with children who are never married\nIncluding cohabiting/reg. partnership",
-          y = "")
-plot_income(Nev_mar_children_2, data = evs_k) + l + sy
-plot_edu(Nev_mar_children_2, data = evs_k) + l + sy
-plot_age(Nev_mar_children_2, data = evs_k) + l + sy
-
-
-# Divorce
-l <- labs(title = "Divorce", 
-          subtitle = "% divorced",
-          y = "")
-plot_income(Divorced) + l + sy
-plot_edu(Divorced) + l + sy
-plot_age(Divorced) + l + sy
-
-
-l <- labs(title = "Full time employment",
-          subtitle = "% working 30 hours weekly, among employed",
-          y = ""
-          )
-evs_emp <- evs |> filter(Employed == 1)
-plot_income(Emp_gt_30, data = evs_emp) + l
-plot_edu(Emp_gt_30, data = evs_emp) + l
-plot_age(Emp_gt_30, data = evs_emp) + l
