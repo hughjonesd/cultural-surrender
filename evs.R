@@ -1,9 +1,12 @@
 
+#### Setup ####
+
 library(tidyverse)
 library(forcats)
 library(haven)
 library(ggstats)
 library(patchwork)
+library(santoku)
 
 theme_set(theme_light())
 theme_update(
@@ -28,6 +31,8 @@ neg_na <- function (x) {
   ifelse(as.numeric(x) < 0, NA, x)
 }
 
+#### Prepare data ####
+
 # Find countries that took part in all waves
 ctry_waves <- table(evs_orig$S009, evs_orig$S002EVS) 
 ctry_waves <- as.matrix(ctry_waves)
@@ -38,12 +43,14 @@ in_all_waves <- rownames(ctry_waves[in_all_waves, ])
 evs <- evs_orig |> 
   mutate(
     Age = relabel_na(X003R),
-    Age = forcats::fct_recode(Age, "65+" = "65 and more years"),
+    Age = fct_recode(Age, "65+" = "65 and more years"),
     across(c(E012, X002, X003, X023R, C038, C039, C040, C041, C011, C012, C017, C024, 
              C031, F028, A065, A097, F024, F034, F126, F127, F128, F140, G006,
              X007, X011, X028, D018, X001, A001:A006, A027:A042, A165, E015:E019,
              F050), 
            neg_na),
+    Cohort = santoku::chop(X002, c(1930, 1940, 1950, 1960, 1970, 1980, 1990), santoku::lbl_discrete()),
+    Cohort = fct_rev(Cohort),
     across(c(D054), relabel_na),
     Marriage_outdated = relabel_na(D022),
     across(c(C038, C039), ~ 6 - .), # originally, 1 = strongly agree, 5 = strongly disagree. Reverse.
@@ -80,6 +87,8 @@ evs <- evs_orig |>
   filter(S009 %in% in_all_waves)
 
 
+#### Plot preparation ####
+
 plot_income <- function (var, data = evs) {
   data |> 
     drop_na(Income, {{var}}) |> 
@@ -108,9 +117,20 @@ plot_age <- function (var, data = evs) {
     scale_color_viridis_d(option = "C", direction = -1)
 }
 
+plot_cohort <- function (var, data = evs) {
+  data |> 
+    drop_na(Cohort, {{var}}) |> 
+    ggplot(aes(Wave, {{var}}, color = Cohort, group = Cohort)) + 
+    stat_weighted_mean(geom = "line", linewidth = 1.1) +
+    stat_weighted_mean(geom = "point") +
+    scale_color_viridis_d(option = "C", direction = -1)
+}
+
 sy <- scale_y_continuous(labels = scales::percent)
 lyb <- labs(y = "")
 
+
+#### Plots ####
 
 evs_k <- evs |> filter(Has_children == 1)
 # Has children, unmarried
@@ -139,6 +159,7 @@ pi <- plot_income(Divorced) + l + sy
 pe <- plot_edu(Divorced) + lyb + sy
 pi + pe
 
+
 # Agree: Marriage is an outdated institution
 l <- labs(title = "Attitudes: marriage is outdated", 
           subtitle = "% of EVS respondents agreeing 'marriage is an outdated institution'",
@@ -155,8 +176,6 @@ l <- labs(title = "Attitudes: child needs both parents",
 pi <- plot_income(D018) + l + sy
 pe <- plot_edu(D018) + lyb + sy
 pi + pe
-
-
 
 
 l <- labs(title = "Full time employment",
