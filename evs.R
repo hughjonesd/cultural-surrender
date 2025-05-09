@@ -123,6 +123,8 @@ plot_cohort <- function (var, data = evs) {
     ggplot(aes(Wave, {{var}}, color = Cohort, group = Cohort)) + 
     stat_weighted_mean(geom = "line", linewidth = 1.1) +
     stat_weighted_mean(geom = "point") +
+    stat_weighted_mean(aes(group = 1), color = "grey60", 
+                       geom = "line", alpha = 0.5, linewidth = 1.7) +
     scale_color_viridis_d(option = "C", direction = -1)
 }
 
@@ -167,7 +169,7 @@ l <- labs(title = "Attitudes: marriage is outdated",
 pi <- plot_income(D022) + l + sy
 pe <- plot_edu(D022) + lyb + sy
 pi + pe
-
+plot_cohort(D022) + l + sy
 
 # Agree: A child needs a home with a mother and a father
 l <- labs(title = "Attitudes: child needs both parents", 
@@ -196,6 +198,7 @@ pi <- plot_income(C038) + l
 pe <- plot_edu(C038) + lyb
 pi + pe
 
+
 # Work is a duty to society (same)
 l <- labs(title = "Attitudes: work is a duty", 
           subtitle = "Mean score (1 = strong disagree, 5 = strong agree)",
@@ -203,6 +206,7 @@ l <- labs(title = "Attitudes: work is a duty",
 pi <- plot_income(C039) + l
 pe <- plot_edu(C039) + lyb
 pi + pe
+plot_cohort(C039) + l
 
 
 # Attends services weekly
@@ -212,6 +216,7 @@ l <- labs(title = "Attends religious services weekly",
 pi <- plot_income(Relig_weekly) + l + sy
 pe <- plot_edu(Relig_weekly) + lyb + sy
 pi + pe
+
 
 # Member religious organization
 l <- labs(title = "Member of church or religious organization", 
@@ -230,6 +235,7 @@ pi <- plot_income(F024) + l + sy
 pe <- plot_edu(F024) + lyb + sy
 pi + pe
 
+
 # religious person
 l <- labs(title = "Religious belief", 
           subtitle = "% saying they are a religious person",
@@ -237,6 +243,7 @@ l <- labs(title = "Religious belief",
 plot_income(Relig_person) + l + sy
 plot_edu(Relig_person) + l + sy
 plot_age(Relig_person) + l + sy
+plot_cohort(Relig_person) + l + sy
 
 
 # Atheist
@@ -246,7 +253,6 @@ l <- labs(title = "Atheism",
 pi <- plot_income(Atheist) + l + sy 
 pe <- plot_edu(Atheist) + lyb + sy
 pi + pe
-
 
 
 # Justifiable: soft drogs
@@ -265,6 +271,7 @@ l <- labs(title = "Lying: how justifiable",
 pi <- plot_income(Lying) + l + sy
 pe <- plot_edu(Lying) + lyb + sy
 pi + pe
+pcl <- plot_cohort(Lying) + l + sy
 
 
 # Justifiable: adultery
@@ -274,6 +281,8 @@ l <- labs(title = "Adultery: how justifiable",
 pi <- plot_income(Adultery) + l + sy
 pe <- plot_edu(Adultery) + lyb + sy
 pi + pe
+pca <- plot_cohort(Adultery) + l + sy
+pcl + pca
 
 
 # National pride
@@ -283,6 +292,7 @@ l <- labs(title = "National pride",
 pi <- plot_income(National_pride) + l + sy
 pe <- plot_edu(National_pride) + lyb + sy
 pi + pe
+plot_cohort(National_pride) + l + sy
 
 # Other things you could do: what's important in a child (A027-A042)
 
