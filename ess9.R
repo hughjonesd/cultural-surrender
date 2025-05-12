@@ -47,7 +47,8 @@ ess9 <- read_csv("ESS9e03_2/ESS9e03_2.csv") |>
     across(c(starts_with("ip"), starts_with("imp")),
            ~ ifelse(. >= 7, NA, .)),
     across(c(starts_with("ip"), starts_with("imp")),
-           ~ 7 - .)
+           ~ 7 - .),
+    across(c(occf14b, occm14b), ~ ifelse(. >= 9, NA, .))
   ) |> 
   mutate(
     Married = rshpsts %in% 1:2,
@@ -446,6 +447,30 @@ plot_dec_gt48 <- men3049 |>
 
 plot_dec_lt40 + plot_dec_gt48
 
+
+plot_occ_lt40 <- men3049 |> 
+  drop_na(wkhtot, occf14b) |> 
+  ggplot(aes(factor(occf14b), 1*(wkhtot < 40))) + 
+  geom_bar(stat = "summary", width = 0.33) + 
+  stat_summary(geom = "linerange", fun.data = \(x) mean_se(x, mult = 1.96)) +
+  labs(title = "Paid work", 
+       subtitle = "Per cent working less than 40 hours per week\nMales 30-49, in work",
+       x = "Father's occupational class", y = "") +
+  scale_y_continuous(labels = scales::percent) + scale_x_discrete(limits = factor(8:1)) + 
+  coord_cartesian(ylim = c(0, 1))
+
+plot_occ_gt48 <- men3049 |> 
+  drop_na(wkhtot, occf14b) |> 
+  ggplot(aes(factor(occf14b), 1*(wkhtot > 48))) + 
+  geom_bar(stat = "summary", width = 0.33) + 
+  stat_summary(geom = "linerange", fun.data = \(x) mean_se(x, mult = 1.96)) +
+  labs(title = "Paid work", 
+       subtitle = "Per cent working more than 48 hours per week\nMales 30-49, in work",
+       x = "Father's occupational class", y = "") +
+  scale_y_continuous(labels = scales::percent) + scale_x_discrete(limits = factor(8:1)) + 
+  coord_cartesian(ylim = c(0, 1))
+
+plot_occ_lt40 + plot_occ_gt48
 
 ## Attitudes ####
 ## 
